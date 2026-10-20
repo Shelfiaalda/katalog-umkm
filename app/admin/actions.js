@@ -54,5 +54,59 @@ export async function keluar() {
   redirect("/admin/login");
 }
 
-export const logout = keluar;
+export async function gantiPassword(prevState, formData) {
+  const data =
+    formData instanceof FormData
+      ? formData
+      : prevState instanceof FormData
+      ? prevState
+      : null;
+  const isActionState = formData instanceof FormData;
 
+  const passwordBaru = data?.get("password_baru")?.toString() || "";
+  const konfirmasiPassword =
+    data?.get("konfirmasi_password")?.toString() || "";
+
+  if (!passwordBaru || passwordBaru.length < 8) {
+    const errorMsg = "Password baru minimal 8 karakter.";
+    if (isActionState) return { error: errorMsg };
+    redirect(`/admin/password?error=${encodeURIComponent(errorMsg)}`);
+  }
+
+  if (passwordBaru !== konfirmasiPassword) {
+    const errorMsg = "Password baru dan konfirmasi password tidak sama.";
+    if (isActionState) return { error: errorMsg };
+    redirect(`/admin/password?error=${encodeURIComponent(errorMsg)}`);
+  }
+
+  const supabase = await buatKoneksiAdmin();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    const errorMsg = "Anda harus masuk terlebih dahulu.";
+    if (isActionState) return { error: errorMsg };
+    redirect(`/admin/login?error=${encodeURIComponent(errorMsg)}`);
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: passwordBaru,
+  });
+
+  if (error) {
+    let errorMsg = error.message;
+    if (error.message.includes("Password should be at least")) {
+      errorMsg = "Password baru minimal 8 karakter.";
+    }
+    if (isActionState) return { error: errorMsg };
+    redirect(`/admin/password?error=${encodeURIComponent(errorMsg)}`);
+  }
+
+  const suksesMsg = "Password berhasil diganti.";
+  if (isActionState) return { success: suksesMsg };
+  redirect(`/admin/password?sukses=${encodeURIComponent(suksesMsg)}`);
+}
+
+export const logout = keluar;
